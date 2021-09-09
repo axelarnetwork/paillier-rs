@@ -119,7 +119,7 @@ fn hash_pieces<D: Digest>(data: &[&[u8]]) -> GenericArray<u8, D::OutputSize> {
     // hash each piece individually to avoid potential padding attacks
     // then hash all the outputs together
     let mut hasher = D::new();
-    data.iter().map(|datum| D::digest(&datum)).for_each(|d| {
+    data.iter().map(|datum| D::digest(datum)).for_each(|d| {
         hasher.update(d.as_slice());
     });
     hasher.finalize()

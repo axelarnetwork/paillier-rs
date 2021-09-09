@@ -154,7 +154,7 @@ fn main() {
     let pk = EncryptionKey::from(&sk);
     
     // Commonly used proof for tECDSA
-    let signing_key = k256::DecryptionKey::random(rand::rngs::OsRng::default());
+    let signing_key = k256::DecryptionKey::random(rand::thread_rng());
     let verification_key = signing_key.public_key();
     let mut nonce = Vec::new();
     nonce.extend_from_slice(

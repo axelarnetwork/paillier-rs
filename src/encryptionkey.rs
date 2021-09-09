@@ -4,7 +4,7 @@ use unknown_order::BigNumber;
 use zeroize::Zeroize;
 
 /// A Paillier encryption key
-#[derive(Clone, Debug, Zeroize)]
+#[derive(Clone, Debug, Zeroize, PartialEq)]
 pub struct EncryptionKey {
     pub(crate) n: BigNumber, // N = p * q, where p = 2p'+1, q = 2q'+1, p,q,p',q' are primes
     pub(crate) nn: BigNumber, // N^2
@@ -53,7 +53,7 @@ impl EncryptionKey {
         }
 
         // Ensure x \in [1..N^2]
-        if !mod_in(&x, &self.nn) {
+        if !mod_in(x, &self.nn) {
             return None;
         }
 
@@ -84,7 +84,7 @@ impl EncryptionKey {
         // b = r^N mod N^2
         let b = &r.modpow(&self.n, &self.nn);
 
-        let c = a.modmul(&b, &self.nn);
+        let c = a.modmul(b, &self.nn);
         Some((c, r))
     }
 
@@ -92,8 +92,8 @@ impl EncryptionKey {
     /// commonly denoted in text as c1 \bigoplus c2
     pub fn add(&self, c1: &Ciphertext, c2: &Ciphertext) -> Option<Ciphertext> {
         // constant time check
-        let c1_check = mod_in(&c1, &self.nn);
-        let c2_check = mod_in(&c2, &self.nn);
+        let c1_check = mod_in(c1, &self.nn);
+        let c2_check = mod_in(c2, &self.nn);
         if !c1_check | !c2_check {
             return None;
         }
@@ -104,8 +104,8 @@ impl EncryptionKey {
     /// Equivalent to adding two Paillier exponents
     pub fn mul(&self, c: &Ciphertext, a: &BigNumber) -> Option<Ciphertext> {
         // constant time check
-        let c1_check = mod_in(&c, &self.nn);
-        let c2_check = mod_in(&a, &self.n);
+        let c1_check = mod_in(c, &self.nn);
+        let c2_check = mod_in(a, &self.n);
         if !c1_check | !c2_check {
             return None;
         }

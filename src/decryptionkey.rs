@@ -4,7 +4,7 @@ use unknown_order::BigNumber;
 use zeroize::Zeroize;
 
 /// A Paillier decryption key
-#[derive(Clone, Debug, Deserialize, Serialize, Zeroize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Zeroize, PartialEq)]
 #[zeroize(drop)]
 pub struct DecryptionKey {
     pub(crate) pk: EncryptionKey,
@@ -81,7 +81,7 @@ impl DecryptionKey {
 
     /// Reverse ciphertext to plaintext
     pub fn decrypt(&self, c: &Ciphertext) -> Option<Vec<u8>> {
-        if !mod_in(&c, &self.pk.nn) {
+        if !mod_in(c, &self.pk.nn) {
             return None;
         }
 
