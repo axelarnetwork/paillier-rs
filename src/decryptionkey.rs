@@ -111,19 +111,37 @@ impl DecryptionKey {
 
         // a = c^\lambda mod n^2
         let a = c.modpow(&self.lambda, &self.pk.nn);
+
         // ell = L(a, N)
-        self.pk.l(&a).map(|l| {
-            // m = lu = L(a)*u = L(c^\lamba*)u mod n
-            let m = l.modmul(&self.u, &self.pk.n);
-            m.to_bytes()
-        })
+        let ell = self.pk.l(&a)?;
+
+        // m = lu = L(a)*u = L(c^\lamba*)u mod n
+        let m = ell.modmul(&self.u, &self.pk.n);
+
+        Some(m.to_bytes())
     }
 
-    pub fn decrypt_with_randomness(&self, c: &Ciphertext) -> Option<(BigNumber, BigNumber)> {
+    /// Reverse ciphertext to plaintext
+    pub fn decrypt_unchecked(&self, c: &Ciphertext) -> Vec<u8> {
+        debug_assert!(mod_in(c, &self.pk.nn));
+
+        // a = c^\lambda mod n^2
+        let a = c.modpow(&self.lambda, &self.pk.nn);
+
+        // ell = L(a, N)
+        let ell = self.pk.l_unchecked(&a);
+
+        // m = lu = L(a)*u = L(c^\lamba*)u mod n
+        let m = ell.modmul(&self.u, &self.pk.n);
+
+        m.to_bytes()
+    }
+
+    pub fn decrypt_with_randomness(&self, c: &Ciphertext) -> (BigNumber, BigNumber) {
         let n = &self.pk.n;
         let nn = &self.pk.nn;
 
-        let m = BigNumber::from_slice(self.decrypt(c)?);
+        let m = BigNumber::from_slice(self.decrypt_unchecked(c));
 
         // g^-m = (N + 1)^-m = 1 - m N (mod N^2)
         let g_m_inv = BigNumber::one().modsub(&m.modmul(n, nn), nn);
@@ -133,7 +151,7 @@ impl DecryptionKey {
 
         let r = r_n.modpow(&self.n_inv, n);
 
-        Some((m, r))
+        (m, r)
     }
 
     /// Get this key's byte representation.

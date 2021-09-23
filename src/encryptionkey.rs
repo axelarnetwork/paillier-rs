@@ -57,8 +57,12 @@ impl EncryptionKey {
             return None;
         }
 
+        Some(self.l_unchecked(x))
+    }
+
+    pub(crate) fn l_unchecked(&self, x: &BigNumber) -> BigNumber {
         //(x - 1) / N
-        Some((x - &one) / &self.n)
+        (x - &BigNumber::one()) / &self.n
     }
 
     /// Encrypt a given message with the encryption key and optionally use a random value
@@ -68,28 +72,42 @@ impl EncryptionKey {
     where
         M: AsRef<[u8]>,
     {
+        let m = BigNumber::from_slice(x);
         let r = r.unwrap_or_else(|| Nonce::random(&self.n));
 
-        self.encrypt_with_randomness(x, r)
-    }
-
-    /// Encrypt a given message with the encryption key and a provided random value
-    /// x must be less than N
-    #[allow(clippy::many_single_char_names)]
-    pub fn encrypt_with_randomness<M>(&self, x: M, r: Nonce) -> Option<(Ciphertext, Nonce)>
-    where
-        M: AsRef<[u8]>,
-    {
-        let m = BigNumber::from_slice(x);
-        // if !mod_in(&xx, &self.n) {  // TODO: Why is this needed?  Should xx be in phi(N) being an exponent?
-        //     println!("xx");
-        //     return None;
-        // }
+        if !mod_in(&m, &self.n) {
+            println!("m");
+            return None;
+        }
 
         if !mod_in(&r, &self.n) {
             println!("r");
             return None;
         }
+
+        Some((self.encrypt_with_randomness(&m, &r), r))
+    }
+
+    /// Encrypt a given message with the encryption key and optionally use a random value
+    /// x must be less than N
+    #[allow(clippy::many_single_char_names)]
+    pub fn encrypt_unchecked<M>(&self, x: M, r: Option<Nonce>) -> (Ciphertext, Nonce)
+    where
+        M: AsRef<[u8]>,
+    {
+        let m = BigNumber::from_slice(x);
+        let r = r.unwrap_or_else(|| Nonce::random(&self.n));
+
+        (self.encrypt_with_randomness(&m, &r), r)
+    }
+
+    /// Encrypt a given message with the encryption key and a provided random value
+    /// x must be less than N
+    #[allow(clippy::many_single_char_names)]
+    pub fn encrypt_with_randomness(&self, m: &BigNumber, r: &Nonce) -> Ciphertext {
+        debug_assert!(mod_in(m, &self.n));
+
+        debug_assert!(mod_in(r, &self.n));
 
         // g^m mod N^2 = (N + 1)^m mod N^2 = m N + 1 mod N^2
         // See Prop 11.26, Pg. 385 of Intro to Modern Cryptography
@@ -100,9 +118,8 @@ impl EncryptionKey {
         // r^N mod N^2
         let r_n = &r.modpow(&self.n, &self.nn);
 
-        let c = g_m.modmul(r_n, &self.nn);
-
-        Some((c, r))
+        // c = g^m r^n mod N^2
+        g_m.modmul(r_n, &self.nn)
     }
 
     /// Combines two Paillier ciphertexts
@@ -118,6 +135,12 @@ impl EncryptionKey {
         Some(c1.modmul(c2, &self.nn))
     }
 
+    /// Combines two Paillier ciphertexts (without checks)
+    /// commonly denoted in text as c1 \bigoplus c2
+    pub fn add_unchecked(&self, c1: &Ciphertext, c2: &Ciphertext) -> Ciphertext {
+        c1.modmul(c2, &self.nn)
+    }
+
     /// Equivalent to adding two Paillier exponents
     pub fn mul(&self, c: &Ciphertext, a: &BigNumber) -> Option<Ciphertext> {
         // constant time check
@@ -128,6 +151,11 @@ impl EncryptionKey {
         }
 
         Some(c.modpow(a, &self.nn))
+    }
+
+    /// Equivalent to adding two Paillier exponents without checks
+    pub fn mul_unchecked(&self, c: &Ciphertext, a: &BigNumber) -> Ciphertext {
+        c.modpow(a, &self.nn)
     }
 
     /// Get this key's byte representation
