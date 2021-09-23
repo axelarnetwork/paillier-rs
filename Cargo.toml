@@ -17,13 +17,13 @@ default = ["rust"]
 gmp = ["unknown_order/gmp"]
 openssl = ["unknown_order/openssl"]
 rust = ["unknown_order/rust"]
-wasm = ["getrandom", "rand", "wasm-bindgen"]
+wasm = ["getrandom", "wasm-bindgen"]
 
 [dependencies]
 digest = "0.9"
 getrandom = { version = "0.2", features = ["js"], optional = true }
-rand = { version = "0.8", optional = true }
-serde = { version = "1.0", features = ["serde_derive"] }
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.4"
 unknown_order = { version = "0.2", default-features = false }
 wasm-bindgen = { version = "0.2", default-features = false, features = ["serde-serialize"], optional = true }

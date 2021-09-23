@@ -1,4 +1,5 @@
 use crate::{mod_in, Ciphertext, EncryptionKey};
+use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use unknown_order::BigNumber;
 use zeroize::Zeroize;
@@ -14,6 +15,12 @@ pub struct DecryptionKey {
     pub(crate) totient: BigNumber,
     /// L((N + 1)^lambda mod N^2)-1 mod N
     pub(crate) u: BigNumber,
+    // N^-1 mod phi(N)
+    pub(crate) n_inv: BigNumber,
+    // p
+    pub(crate) p: BigNumber,
+    // q
+    pub(crate) q: BigNumber,
 }
 
 #[cfg(feature = "wasm")]
@@ -24,6 +31,17 @@ impl DecryptionKey {
     pub fn random() -> Option<Self> {
         let mut p = BigNumber::safe_prime(1024);
         let mut q = BigNumber::safe_prime(1024);
+        let res = Self::with_safe_primes_unchecked(&p, &q);
+        // Make sure the primes are zero'd
+        p.zeroize();
+        q.zeroize();
+        res
+    }
+
+    pub fn with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Option<Self> {
+        let mut p = BigNumber::safe_prime_with_rng(rng, 1024);
+        let mut q = BigNumber::safe_prime_with_rng(rng, 1024);
+
         let res = Self::with_safe_primes_unchecked(&p, &q);
         // Make sure the primes are zero'd
         p.zeroize();
@@ -66,6 +84,9 @@ impl DecryptionKey {
         let t: BigNumber = &n + 1;
         let tt = t.modpow(&lambda, &nn);
 
+        // Useful for decrypting with randomness
+        let n_inv = n.invert(&totient)?;
+
         // L((N+1)^lambda mod N^2)^-1 mod N
         let uu = pk.l(&tt).map(|uu| uu.invert(&n));
         match uu {
@@ -75,6 +96,9 @@ impl DecryptionKey {
                 lambda,
                 totient,
                 u,
+                n_inv,
+                p: p.clone(),
+                q: q.clone(),
             }),
         }
     }
@@ -95,6 +119,23 @@ impl DecryptionKey {
         })
     }
 
+    pub fn decrypt_with_randomness(&self, c: &Ciphertext) -> Option<(BigNumber, BigNumber)> {
+        let n = &self.pk.n;
+        let nn = &self.pk.nn;
+
+        let m = BigNumber::from_slice(self.decrypt(c)?);
+
+        // g^-m = (N + 1)^-m = 1 - m N (mod N^2)
+        let g_m_inv = BigNumber::one().modsub(&m.modmul(n, nn), nn);
+
+        // r^N = c . g^-m (mod N^2)
+        let r_n = c.modmul(&g_m_inv, nn);
+
+        let r = r_n.modpow(&self.n_inv, n);
+
+        Some((m, r))
+    }
+
     /// Get this key's byte representation.
     ///
     /// This measures about (n * 4) + 4 bytes or i.e.
@@ -105,6 +146,9 @@ impl DecryptionKey {
             lambda: self.lambda.to_bytes(),
             totient: self.totient.to_bytes(),
             u: self.u.to_bytes(),
+            n_inv: self.n_inv.to_bytes(),
+            p: self.p.to_bytes(),
+            q: self.q.to_bytes(),
         };
         serde_bare::to_vec(&bytes).unwrap()
     }
@@ -120,6 +164,9 @@ impl DecryptionKey {
             lambda: BigNumber::from_slice(bytes.lambda.as_slice()),
             totient: BigNumber::from_slice(bytes.totient.as_slice()),
             u: BigNumber::from_slice(bytes.u.as_slice()),
+            n_inv: BigNumber::from_slice(bytes.n_inv.as_slice()),
+            p: BigNumber::from_slice(bytes.p.as_slice()),
+            q: BigNumber::from_slice(bytes.q.as_slice()),
         })
     }
 
@@ -131,6 +178,21 @@ impl DecryptionKey {
     /// The Paillier `lambda`
     pub fn lambda(&self) -> &BigNumber {
         &self.lambda
+    }
+
+    /// The Paillier `lambda`
+    pub fn n_inv(&self) -> &BigNumber {
+        &self.n_inv
+    }
+
+    /// The Paillier `lambda`
+    pub fn p(&self) -> &BigNumber {
+        &self.p
+    }
+
+    /// The Paillier `lambda`
+    pub fn q(&self) -> &BigNumber {
+        &self.q
     }
 
     /// The Paillier `totient`
@@ -150,4 +212,7 @@ struct DecryptionKeyBytes {
     lambda: Vec<u8>,
     totient: Vec<u8>,
     u: Vec<u8>,
+    n_inv: Vec<u8>,
+    p: Vec<u8>,
+    q: Vec<u8>,
 }

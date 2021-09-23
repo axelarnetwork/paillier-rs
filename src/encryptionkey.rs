@@ -68,23 +68,40 @@ impl EncryptionKey {
     where
         M: AsRef<[u8]>,
     {
-        let xx = BigNumber::from_slice(x);
-        if !mod_in(&xx, &self.n) {
-            return None;
-        }
-
         let r = r.unwrap_or_else(|| Nonce::random(&self.n));
 
+        self.encrypt_with_randomness(x, r)
+    }
+
+    /// Encrypt a given message with the encryption key and a provided random value
+    /// x must be less than N
+    #[allow(clippy::many_single_char_names)]
+    pub fn encrypt_with_randomness<M>(&self, x: M, r: Nonce) -> Option<(Ciphertext, Nonce)>
+    where
+        M: AsRef<[u8]>,
+    {
+        let m = BigNumber::from_slice(x);
+        // if !mod_in(&xx, &self.n) {  // TODO: Why is this needed?  Should xx be in phi(N) being an exponent?
+        //     println!("xx");
+        //     return None;
+        // }
+
         if !mod_in(&r, &self.n) {
+            println!("r");
             return None;
         }
 
-        // a = (N+1)^m mod N^2
-        let a = (&self.n + BigNumber::one()).modpow(&xx, &self.nn);
-        // b = r^N mod N^2
-        let b = &r.modpow(&self.n, &self.nn);
+        // g^m mod N^2 = (N + 1)^m mod N^2 = m N + 1 mod N^2
+        // See Prop 11.26, Pg. 385 of Intro to Modern Cryptography
+        let g_m = m
+            .modmul(&self.n, &self.nn)
+            .modadd(&BigNumber::one(), &self.nn);
 
-        let c = a.modmul(b, &self.nn);
+        // r^N mod N^2
+        let r_n = &r.modpow(&self.n, &self.nn);
+
+        let c = g_m.modmul(r_n, &self.nn);
+
         Some((c, r))
     }
 
