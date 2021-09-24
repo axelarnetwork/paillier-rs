@@ -76,12 +76,10 @@ impl EncryptionKey {
         let r = r.unwrap_or_else(|| Nonce::random(&self.n));
 
         if !mod_in(&m, &self.n) {
-            println!("m");
             return None;
         }
 
         if !mod_in(&r, &self.n) {
-            println!("r");
             return None;
         }
 
