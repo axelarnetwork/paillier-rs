@@ -1,4 +1,5 @@
 use crate::{mod_in, Ciphertext, EncryptionKey};
+#[cfg(feature = "gmp")]
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use unknown_order::BigNumber;
@@ -38,9 +39,17 @@ impl DecryptionKey {
         res
     }
 
+    #[cfg(feature = "gmp")]
+    /// Create a new decryption key using the provided `rng`
     pub fn with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Option<Self> {
-        let mut p = BigNumber::safe_prime_with_rng(rng, 1024);
-        let mut q = BigNumber::safe_prime_with_rng(rng, 1024);
+        // fast_safe_prime_with_rng can return primes that are of the length 1023 or 1024 bits
+        // The Paillier scheme relies on the assumption that gcd(N, phi(N)) = 1
+        // (See Claim 11.27, Pg. 386 of Intro to Modern Cryptography)
+        // If N = p q, where p and q have the same length, this holds trivially.
+        // In this case, p and q differ by at most 1 bit. So, the probability
+        // that p | q - 1 and vice-versa is still negligible.
+        let mut p = BigNumber::fast_safe_prime_with_rng(rng, 1024);
+        let mut q = BigNumber::fast_safe_prime_with_rng(rng, 1024);
 
         let res = Self::with_safe_primes_unchecked(&p, &q);
         // Make sure the primes are zero'd
@@ -84,7 +93,7 @@ impl DecryptionKey {
         let t: BigNumber = &n + 1;
         let tt = t.modpow(&lambda, &nn);
 
-        // Useful for decrypting with randomness
+        // Useful for decrypting and retrieving the randomness/nonce
         let n_inv = n.invert(&totient)?;
 
         // L((N+1)^lambda mod N^2)^-1 mod N
@@ -122,7 +131,7 @@ impl DecryptionKey {
     }
 
     /// Reverse ciphertext to plaintext
-    pub fn decrypt_unchecked(&self, c: &Ciphertext) -> Vec<u8> {
+    pub fn decrypt_unchecked(&self, c: &Ciphertext) -> BigNumber {
         debug_assert!(mod_in(c, &self.pk.nn));
 
         // a = c^\lambda mod n^2
@@ -132,16 +141,15 @@ impl DecryptionKey {
         let ell = self.pk.l_unchecked(&a);
 
         // m = lu = L(a)*u = L(c^\lamba*)u mod n
-        let m = ell.modmul(&self.u, &self.pk.n);
-
-        m.to_bytes()
+        ell.modmul(&self.u, &self.pk.n)
     }
 
+    /// Reverse ciphertext to plaintext and also retrieve the randomness
     pub fn decrypt_with_randomness(&self, c: &Ciphertext) -> (BigNumber, BigNumber) {
         let n = &self.pk.n;
         let nn = &self.pk.nn;
 
-        let m = BigNumber::from_slice(self.decrypt_unchecked(c));
+        let m = self.decrypt_unchecked(c);
 
         // g^-m = (N + 1)^-m = 1 - m N (mod N^2)
         let g_m_inv = BigNumber::one().modsub(&m.modmul(n, nn), nn);
