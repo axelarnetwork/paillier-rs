@@ -90,26 +90,23 @@ impl DecryptionKey {
         }
         let totient = &pm1 * &qm1;
 
-        // (N+1)^lambda mod N^2
-        let t: BigNumber = &n + 1;
-        let tt = t.modpow(&lambda, &nn);
+        // (N+1)^lambda mod N^2 = lambda N + 1 mod N^2
+        let tt = lambda.modmul(&n, &nn).modadd(&BigNumber::one(), &nn);
 
         let n_inv = n.invert(&totient)?;
 
         // L((N+1)^lambda mod N^2)^-1 mod N
-        let uu = pk.l(&tt).map(|uu| uu.invert(&n));
-        match uu {
-            None => None,
-            Some(u_inv) => u_inv.map(|u| DecryptionKey {
-                pk,
-                lambda,
-                totient,
-                u,
-                n_inv,
-                p: p.clone(),
-                q: q.clone(),
-            }),
-        }
+        let u = pk.l(&tt)?.invert(&n)?;
+
+        Some(DecryptionKey {
+            pk,
+            lambda,
+            totient,
+            u,
+            n_inv,
+            p: p.clone(),
+            q: q.clone(),
+        })
     }
 
     /// Reverse ciphertext to plaintext
