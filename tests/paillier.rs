@@ -104,27 +104,43 @@ fn serialization() {
     let sk = res.unwrap();
     let pk = EncryptionKey::from(&sk);
 
-    let res = serde_json::to_string(&pk);
+    let res = bincode::serialize(&pk);
     assert!(res.is_ok());
-    let pk_str = unicase::Ascii::new(res.unwrap());
-    assert_eq!(
-        pk_str,
-        unicase::Ascii::new(
-            r#""1a916b30385e4d342bbcb6e3c56d70c37cb55c6ef50842006081e7e39df0670cf0de00707611839bb84355b43ddc871476fbf251651e391d2811eadb148b7f4aaf79bb770a5262290ba9d8be41b69b03ca5056b702eb02d29ec896eb1274661181b56e4b27979a8a47238c925f91653766fb286d833db1fdb93816d826d60a653bd0d2afa196c95265635108bd32ef63c52310b93bb682498d17d16e257f19503fe9d718418ad7a1834c64f125944818674aaf2c2c0bbb12d13d45bcc70d8db697879fba820fbedde986807ad0f15622d1d9ff7ede7e29b7547c3db9a2b3ca6d3e086a1d258b0b3f8b6e5008e3d8a85e744299240fd2064811aeb5e1db2b299f""#
-        )
-    );
-    let res = serde_json::from_str::<EncryptionKey>(&pk_str);
+    let res = res.unwrap();
+
+    let expected_bytes = vec![
+        0, 1, 0, 0, 0, 0, 0, 0, 26, 145, 107, 48, 56, 94, 77, 52, 43, 188, 182, 227, 197, 109, 112,
+        195, 124, 181, 92, 110, 245, 8, 66, 0, 96, 129, 231, 227, 157, 240, 103, 12, 240, 222, 0,
+        112, 118, 17, 131, 155, 184, 67, 85, 180, 61, 220, 135, 20, 118, 251, 242, 81, 101, 30, 57,
+        29, 40, 17, 234, 219, 20, 139, 127, 74, 175, 121, 187, 119, 10, 82, 98, 41, 11, 169, 216,
+        190, 65, 182, 155, 3, 202, 80, 86, 183, 2, 235, 2, 210, 158, 200, 150, 235, 18, 116, 102,
+        17, 129, 181, 110, 75, 39, 151, 154, 138, 71, 35, 140, 146, 95, 145, 101, 55, 102, 251, 40,
+        109, 131, 61, 177, 253, 185, 56, 22, 216, 38, 214, 10, 101, 59, 208, 210, 175, 161, 150,
+        201, 82, 101, 99, 81, 8, 189, 50, 239, 99, 197, 35, 16, 185, 59, 182, 130, 73, 141, 23,
+        209, 110, 37, 127, 25, 80, 63, 233, 215, 24, 65, 138, 215, 161, 131, 76, 100, 241, 37, 148,
+        72, 24, 103, 74, 175, 44, 44, 11, 187, 18, 209, 61, 69, 188, 199, 13, 141, 182, 151, 135,
+        159, 186, 130, 15, 190, 221, 233, 134, 128, 122, 208, 241, 86, 34, 209, 217, 255, 126, 222,
+        126, 41, 183, 84, 124, 61, 185, 162, 179, 202, 109, 62, 8, 106, 29, 37, 139, 11, 63, 139,
+        110, 80, 8, 227, 216, 168, 94, 116, 66, 153, 36, 15, 210, 6, 72, 17, 174, 181, 225, 219,
+        43, 41, 159,
+    ];
+
+    assert_eq!(res, expected_bytes);
+
+    let res = bincode::deserialize::<EncryptionKey>(&res[..]);
     assert!(res.is_ok());
+
     let pk1 = res.unwrap();
     assert_eq!(pk1.n(), pk.n());
 
-    let res = serde_json::to_string(&sk);
+    let res = bincode::serialize(&sk);
     assert!(res.is_ok());
     let sk_str = res.unwrap();
 
-    let res = serde_json::from_str::<DecryptionKey>(&sk_str);
+    let res = bincode::deserialize::<DecryptionKey>(&sk_str);
     assert!(res.is_ok());
     let sk1 = res.unwrap();
+    assert_eq!(sk, sk1);
     assert_eq!(sk.u(), sk1.u());
     assert_eq!(sk.totient(), sk1.totient());
     assert_eq!(sk.lambda(), sk1.lambda());
