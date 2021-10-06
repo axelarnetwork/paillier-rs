@@ -103,7 +103,8 @@ impl EncryptionKey {
     /// x must be less than N
     #[allow(clippy::many_single_char_names)]
     pub fn encrypt_with_randomness(&self, m: &BigNumber, r: &Nonce) -> Ciphertext {
-        debug_assert!(mod_in(m, &self.n));
+        // Our use case does require encrypting a larger plaintext
+        // debug_assert!(mod_in(m, &self.n));
 
         debug_assert!(mod_in(r, &self.n));
 
