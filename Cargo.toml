@@ -16,8 +16,8 @@ version = "0.2.1"
 default = ["rust"]
 gmp = ["unknown_order/gmp", "rand"]
 openssl = ["unknown_order/openssl"]
-rust = ["unknown_order/rust"]
-wasm = ["getrandom", "rand", "wasm-bindgen"]
+rust = ["unknown_order/rust", "rand"]
+wasm = ["getrandom", "rand", "wasm-bindgen", "serde-wasm-bindgen"]
 
 [dependencies]
 digest = "0.9"
@@ -27,6 +27,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.4"
 unknown_order = { git = "https://github.com/axelarnetwork/unknown_order", default-features = false }
 wasm-bindgen = { version = "0.2", default-features = false, features = ["serde-serialize"], optional = true }
+serde-wasm-bindgen = { version = "0.4", optional = true }
 zeroize = { version = "1.4", features = ["zeroize_derive"] }
 
 [dev-dependencies]

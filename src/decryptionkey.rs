@@ -1,5 +1,5 @@
 use crate::{mod_in, Ciphertext, EncryptionKey};
-#[cfg(feature = "gmp")]
+#[cfg(any(feature = "gmp", feature = "rust"))]
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use unknown_order::BigNumber;
@@ -40,7 +40,7 @@ impl DecryptionKey {
         res
     }
 
-    #[cfg(feature = "gmp")]
+    #[cfg(any(feature = "gmp", feature = "rust"))]
     /// Create a new decryption key using the provided `rng`
     pub fn with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Option<Self> {
         // fast_safe_prime_with_rng can return primes that are of the length 1023 or 1024 bits

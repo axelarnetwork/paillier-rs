@@ -42,12 +42,11 @@ macro_rules! wasm_slice_impl {
             }
         }
 
-        impl std::convert::TryFrom<wasm_bindgen::JsValue> for $name {
+        impl core::convert::TryFrom<wasm_bindgen::JsValue> for $name {
             type Error = &'static str;
 
             fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
-                value
-                    .into_serde::<$name>()
+                serde_wasm_bindgen::from_value(value)
                     .map_err(|_| "unable to deserialize value")
             }
         }
